@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mobile Sensor Bridge</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
+    <style>
+        :root {
+            /* Palette: Cyber-Glass */
+            --bg-color: #030305;
+            --card-bg: rgba(22, 22, 28, 0.6);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --primary: #3b82f6;
+            /* Blue */
+            --primary-glow: rgba(59, 130, 246, 0.4);
+            --accent: #10b981;
+            /* Emerald */
+            --accent-glow: rgba(16, 185, 129, 0.4);
+            --danger: #ef4444;
+            /* Red */
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --font-main: 'Outfit', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+
+            --glass-blur: blur(20px);
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* RESET & BASE */
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            background-image:
+                radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.15), transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(16, 185, 129, 0.1), transparent 40%);
+            color: var(--text-main);
+            font-family: var(--font-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+        }
+
+        /* LAYOUT */
+        .app-container {
+            width: 100%;
+            max-width: 800px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* HEADER */
+        header {
+            text-align: center;
+            margin-bottom: 32px;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 0;
+            background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.03em;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 12px;
+            padding: 6px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            backdrop-filter: var(--glass-blur);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--text-muted);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+            transition: var(--transition);
+        }
+
+        .status-dot.active {
+            background-color: var(--accent);
+            box-shadow: 0 0 15px var(--accent);
+        }
+
+        /* CARDS */
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 24px;
+            backdrop-filter: var(--glass-blur);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            transition: var(--transition);
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.8s ease-out forwards;
+        }
+
+        .glass-card:nth-child(1) {
+            animation-delay: 0.2s;
+        }
+
+        .glass-card:nth-child(2) {
+            animation-delay: 0.4s;
+        }
+
+        .glass-card:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 500;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .icon {
+            opacity: 0.8;
+        }
+
+        /* CAMERA AREA */
+        .video-wrapper {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #000;
+            border-radius: 16px;
+            overflow: hidden;
+            position: relative;
+            margin-bottom: 20px;
+            border: 1px solid var(--card-border);
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+            /* Mirror effect for default user feel, can toggle */
+        }
+
+        .video-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 12px;
+            background: rgba(0, 0, 0, 0.7);
+            transition: var(--transition);
+            z-index: 10;
+        }
+
+        .video-overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* DATA VISUALIZATION */
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+
+        .data-item {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            padding: 12px;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .data-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .data-value {
+            color: var(--primary);
+            font-weight: 500;
+        }
+
+        /* CONTROLS */
+        .btn-group {
+            display: flex;
+            gap: 12px;
+        }
+
+        button {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 14px;
+            font-family: var(--font-main);
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), #2563eb);
+            color: #fff;
+            box-shadow: 0 4px 12px var(--primary-glow);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px var(--primary-glow);
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--danger), #b91c1c);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-main);
+            border: 1px solid transparent;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        /* ANIMATIONS */
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* UTILS */
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="app-container">
+        <header>
+            <h1>Sensor Bridge</h1>
+            <div class="status-badge">
+                <div id="status-dot" class="status-dot"></div>
+                <span id="status-text">Disconnected</span>
+            </div>
+        </header>
+
+        <!-- Camera Section -->
+        <div class="glass-card">
+            <div class="card-header">
+                <h2>
+                    <svg class="icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z">
+                        </path>
+                        <circle cx="12" cy="13" r="4"></circle>
+                    </svg>
+                    Camera Stream
+                </h2>
+                <button class="btn-secondary" id="switch-cam-btn"
+                    style="padding: 8px; flex: 0; width: 40px; height: 40px; border-radius: 50%;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 10c0-6-6-6-6-6s-6 0-6 6h12z" />
+                        <path d="M4 14c0 6 6 6 6 6s6 0 6-6H4z" />
+                        <path d="M7 10V8a5 5 0 0 1 10 0v2" />
+                    </svg>
+                </button>
+            </div>
+
+            <div class="video-wrapper">
+                <video id="video-feed" autoplay playsinline muted></video>
+                <div id="video-placeholder" class="video-overlay">
+                    <span style="color: var(--text-muted); font-size: 0.9rem;">Camera Off</span>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button id="btn-cam-start" class="btn-primary" onclick="startCamera()">Turn On</button>
+                <button id="btn-cam-stop" class="btn-danger hidden" onclick="stopCamera()">Turn Off</button>
+            </div>
+        </div>
+
+        <!-- IMU Section -->
+        <div class="glass-card">
+            <div class="card-header">
+                <h2>
+                    <svg class="icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M4.93 19.07L19.07 4.93" />
+                    </svg>
+                    Motion (IMU)
+                </h2>
+            </div>
+
+            <div class="data-grid">
+                <div class="data-item">
+                    <span class="data-label">Accel X</span>
+                    <span id="acc-x" class="data-value">0.00</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">Accel Y</span>
+                    <span id="acc-y" class="data-value">0.00</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">Accel Z</span>
+                    <span id="acc-z" class="data-value">0.00</span>
+                </div>
+                <div class="data-item">
+                    <span class="data-label">Update Rate</span>
+                    <span id="rate" class="data-value">0 ms</span>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button id="btn-imu-start" class="btn-primary" onclick="requestIMU()">Enable Sensors</button>
+                <button id="btn-imu-stop" class="btn-danger hidden" onclick="stopIMU()">Disable</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- SCRIPT -->
+    <script>
+        // State
+        let stream = null;
+        let imuActive = false;
+        let frontCamera = false;
+
+        // DOM Elements
+        const els = {
+            video: document.getElementById('video-feed'),
+            placeholder: document.getElementById('video-placeholder'),
+            btnCamStart: document.getElementById('btn-cam-start'),
+            btnCamStop: document.getElementById('btn-cam-stop'),
+            btnSwitch: document.getElementById('switch-cam-btn'),
+            btnImuStart: document.getElementById('btn-imu-start'),
+            btnImuStop: document.getElementById('btn-imu-stop'),
+            statusDot: document.getElementById('status-dot'),
+            statusText: document.getElementById('status-text'),
+            accX: document.getElementById('acc-x'),
+            accY: document.getElementById('acc-y'),
+            accZ: document.getElementById('acc-z'),
+            rate: document.getElementById('rate')
+        };
+
+        // --- Camera Logic ---
+
+        async function startCamera() {
+            try {
+                const constraints = {
+                    video: {
+                        facingMode: frontCamera ? 'user' : 'environment',
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 }
+                    },
+                    audio: false
+                };
+
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                els.video.srcObject = stream;
+
+                // Mirror logic: mirror if front cam
+                els.video.style.transform = frontCamera ? 'scaleX(-1)' : 'scaleX(1)';
+
+                els.placeholder.classList.add('hidden');
+                toggleCamButtons(true);
+                updateStatus('Streaming');
+            } catch (err) {
+                console.error("Camera Error:", err);
+                alert(`Could not access camera: ${err.message}`);
+            }
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+                els.video.srcObject = null;
+                els.placeholder.classList.remove('hidden');
+                toggleCamButtons(false);
+                updateStatus(imuActive ? 'Sensors Active' : 'Disconnected');
+            }
+        }
+
+        function toggleCamButtons(active) {
+            if (active) {
+                els.btnCamStart.classList.add('hidden');
+                els.btnCamStop.classList.remove('hidden');
+            } else {
+                els.btnCamStart.classList.remove('hidden');
+                els.btnCamStop.classList.add('hidden');
+            }
+        }
+
+        // Switch Camera Handler
+        els.btnSwitch.onclick = () => {
+            frontCamera = !frontCamera;
+            if (stream) {
+                stopCamera();
+                startCamera();
+            }
+        };
+
+        // --- IMU Logic ---
+
+        async function requestIMU() {
+            // Check for iOS 13+ permission format
+            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                try {
+                    const permission = await DeviceMotionEvent.requestPermission();
+                    if (permission === 'granted') {
+                        enableIMU();
+                    } else {
+                        alert('Permission denied');
+                    }
+                } catch (e) {
+                    alert('Error requesting permission: ' + e);
+                }
+            } else {
+                // Non-iOS or older devices usually don't need explicit permission for now
+                enableIMU();
+            }
+        }
+
+        function enableIMU() {
+            imuActive = true;
+            window.addEventListener('devicemotion', handleMotion);
+            toggleImuButtons(true);
+            updateStatus(stream ? 'Streaming & Sensing' : 'Sensors Active');
+        }
+
+        function stopIMU() {
+            imuActive = false;
+            window.removeEventListener('devicemotion', handleMotion);
+
+            // Reset Values
+            els.accX.textContent = '0.00';
+            els.accY.textContent = '0.00';
+            els.accZ.textContent = '0.00';
+            els.rate.textContent = '0 ms';
+
+            toggleImuButtons(false);
+            updateStatus(stream ? 'Streaming' : 'Disconnected');
+        }
+
+        function toggleImuButtons(active) {
+            if (active) {
+                els.btnImuStart.classList.add('hidden');
+                els.btnImuStop.classList.remove('hidden');
+            } else {
+                els.btnImuStart.classList.remove('hidden');
+                els.btnImuStop.classList.add('hidden');
+            }
+        }
+
+        function handleMotion(event) {
+            if (!imuActive) return;
+
+            const acc = event.accelerationIncludingGravity || {};
+
+            // Update UI
+            els.accX.textContent = (acc.x || 0).toFixed(2);
+            els.accY.textContent = (acc.y || 0).toFixed(2);
+            els.accZ.textContent = (acc.z || 0).toFixed(2);
+            els.rate.textContent = Math.round(event.interval) + ' ms';
+        }
+
+        // --- Utilities ---
+
+        function updateStatus(state) {
+            els.statusText.textContent = state;
+            if (state === 'Disconnected') {
+                els.statusDot.classList.remove('active');
+            } else {
+                els.statusDot.classList.add('active');
+            }
+        }
+    </script>
+</body>
+
+</html>

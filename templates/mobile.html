@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mobile Sensor Bridge (Sender)</title>
+
+    <!-- Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
+
+    <style>
+        /* Reusing premium Cyber-Glass CSS */
+        :root {
+            --bg-color: #030305;
+            --card-bg: rgba(22, 22, 28, 0.6);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --primary: #3b82f6;
+            --primary-glow: rgba(59, 130, 246, 0.4);
+            --accent: #10b981;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --font-main: 'Outfit', sans-serif;
+            --glass-blur: blur(20px);
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--bg-color);
+            background-image: radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.15), transparent 40%);
+            color: var(--text-main);
+            font-family: var(--font-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px;
+            min-height: 100vh;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            margin: 0 0 20px 0;
+            background: linear-gradient(135deg, #fff, #94a3b8);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .glass-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 20px;
+            backdrop-filter: var(--glass-blur);
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            background: var(--primary);
+            color: white;
+            margin-top: 10px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            background: #555;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+
+        .status-dot.active {
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Sensor Sender</h1>
+
+    <div class="glass-card">
+        <div style="margin-bottom: 10px;">
+            <span id="socket-status" class="status-dot"></span> <span id="socket-text">Disconnected</span>
+        </div>
+
+        <!-- Hidden video/canvas for processing -->
+        <video id="video-feed" autoplay playsinline muted
+            style="width: 100%; border-radius: 12px; transform: scaleX(-1);"></video>
+        <canvas id="canvas" style="display:none;"></canvas>
+
+        <button onclick="startStreaming()">Start Streaming</button>
+        <button onclick="requestIMU()" style="background: rgba(255,255,255,0.1);">Enable IMU</button>
+    </div>
+
+    <script>
+        const socket = io();
+        const video = document.getElementById('video-feed');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let stream = null;
+        let streaming = false;
+
+        socket.on('connect', () => {
+            document.getElementById('socket-status').classList.add('active');
+            document.getElementById('socket-text').innerText = 'Connected to Server';
+        });
+
+        socket.on('disconnect', () => {
+            document.getElementById('socket-status').classList.remove('active');
+            document.getElementById('socket-text').innerText = 'Disconnected';
+        });
+
+        async function startStreaming() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment', width: 640, height: 480 },
+                    audio: false
+                });
+                video.srcObject = stream;
+                streaming = true;
+
+                // Reduce framerate slightly to save bandwidth (e.g., 20 FPS)
+                setInterval(sendFrame, 50);
+            } catch (err) {
+                alert("Camera failed: " + err);
+            }
+        }
+
+        function sendFrame() {
+            if (!streaming) return;
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0);
+
+            // Compression quality 0.5
+            const data = canvas.toDataURL('image/jpeg', 0.5);
+            socket.emit('video_frame', data);
+        }
+
+        async function requestIMU() {
+            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                await DeviceMotionEvent.requestPermission();
+            }
+            window.addEventListener('devicemotion', (event) => {
+                const acc = event.accelerationIncludingGravity || {};
+                const rot = event.rotationRate || {};
+                socket.emit('imu_data', {
+                    acc: { x: acc.x, y: acc.y, z: acc.z },
+                    rot: { alpha: rot.alpha, beta: rot.beta, gamma: rot.gamma }
+                });
+            });
+            alert("IMU Enabled & Streaming");
+        }
+
+        // --- Text to Speech ---
+        let lastSpokenTime = 0;
+        const SPEAK_COOLDOWN = 3000; // 3 seconds
+
+        socket.on('voice_command', (data) => {
+            const now = Date.now();
+            if (now - lastSpokenTime > SPEAK_COOLDOWN) {
+                const utterance = new SpeechSynthesisUtterance(data.label);
+                window.speechSynthesis.speak(utterance);
+                lastSpokenTime = now;
+            }
+        });
+    </script>
+</body>
+
+</html>
