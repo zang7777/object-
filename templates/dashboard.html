@@ -3,149 +3,336 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Mission Control Dashboard</title>
+    <title>Mission Control</title>
+    <!-- Fonts -->
     <link
-        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Rajdhani:wght@300;500;600&display=swap"
         rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
         :root {
-            --bg-color: #050505;
-            --card-bg: #111;
-            --primary: #3b82f6;
-            --accent: #10b981;
-            --text-main: #f8fafc;
+            --primary: #00f3ff;
+            --secondary: #ff0055;
+            --bg: #030507;
+            --panel-bg: rgba(10, 15, 20, 0.7);
+            --border: rgba(0, 243, 255, 0.2);
+            --text-main: #e0faff;
+            --font-head: 'Orbitron', sans-serif;
+            --font-body: 'Rajdhani', sans-serif;
         }
 
         body {
             margin: 0;
-            background: var(--bg-color);
+            background-color: var(--bg);
+            background-image:
+                linear-gradient(rgba(0, 243, 255, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 243, 255, 0.05) 1px, transparent 1px);
+            background-size: 50px 50px;
             color: var(--text-main);
-            font-family: 'Outfit', sans-serif;
-            display: grid;
-            grid-template-columns: 2fr 1fr;
+            font-family: var(--font-body);
             height: 100vh;
+            display: grid;
+            grid-template-rows: 60px 1fr 200px;
+            grid-template-columns: 1fr 350px;
             gap: 20px;
             padding: 20px;
+            overflow: hidden;
         }
 
-        .panel {
-            background: var(--card-bg);
-            border: 1px solid #222;
-            border-radius: 16px;
-            padding: 20px;
+        /* Header */
+        header {
+            grid-column: 1 / 3;
             display: flex;
-            flex-direction: column;
-        }
-
-        h2 {
-            margin-top: 0;
-            border-bottom: 1px solid #333;
-            padding-bottom: 10px;
-            font-size: 1.2rem;
-            display: flex;
+            align-items: center;
             justify-content: space-between;
+            border-bottom: 2px solid var(--border);
+            padding: 0 20px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px);
+        }
+
+        h1 {
+            font-family: var(--font-head);
+            font-size: 1.5rem;
+            margin: 0;
+            color: var(--primary);
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+        }
+
+        .status-pill {
+            padding: 5px 15px;
+            background: rgba(0, 255, 0, 0.1);
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Main Video Panel */
+        .video-panel {
+            grid-row: 2 / 3;
+            grid-column: 1 / 2;
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0, 243, 255, 0.1);
         }
 
         #video-display {
             width: 100%;
             height: 100%;
             object-fit: contain;
-            background: black;
-            border-radius: 8px;
         }
 
-        .metric-card {
-            background: rgba(255, 255, 255, 0.05);
+        .overlay-text {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-family: var(--font-head);
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.8rem;
+        }
+
+        /* Side Panel (Telemetry & Chat) */
+        .side-panel {
+            grid-row: 2 / 4;
+            grid-column: 2 / 3;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
             padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
+            border-radius: 10px;
+        }
+
+        .card h2 {
+            margin: 0 0 15px 0;
+            font-family: var(--font-head);
+            font-size: 1rem;
+            color: var(--primary);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
+        }
+
+        /* Telemetry Grid */
+        .telemetry-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+        }
+
+        .metric {
+            text-align: center;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 5px;
         }
 
         .metric-label {
-            font-size: 0.8rem;
+            font-size: 0.7rem;
             color: #888;
-            text-transform: uppercase;
+            margin-bottom: 5px;
         }
 
-        .metric-value {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 1.5rem;
-            color: var(--primary);
+        .metric-val {
+            font-size: 1.2rem;
+            font-weight: bold;
+            font-family: monospace;
+            color: var(--text-main);
         }
 
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            background: #333;
-            border-radius: 50%;
+        /* Chat Log */
+        .chat-container {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            padding: 10px;
+            overflow-y: auto;
+            font-size: 0.9rem;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
 
-        .status-dot.active {
-            background: var(--accent);
-            box-shadow: 0 0 10px var(--accent);
+        .chat-line {
+            padding: 5px 8px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .chat-line.bot {
+            border-left: 2px solid var(--primary);
+            color: #ccc;
+        }
+
+        .chat-line.user {
+            border-left: 2px solid var(--secondary);
+            color: #fff;
+            text-align: right;
+        }
+
+        /* Bottom Graph Panel */
+        .bottom-panel {
+            grid-row: 3 / 4;
+            grid-column: 1 / 2;
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px;
+            position: relative;
+        }
+
+        canvas#acc-chart {
+            width: 100%;
+            height: 100%;
         }
     </style>
 </head>
 
 <body>
 
-    <!-- Main View: Video Feed -->
-    <div class="panel">
-        <h2>
-            <span>processed_feed :: Object_Detection (MobileNet_SSD)</span>
-            <span id="status-dot" class="status-dot"></span>
-        </h2>
-        <img id="video-display" src="" alt="Waiting for stream...">
+    <header>
+        <h1>MISSION CONTROL</h1>
+        <div id="connection-status" class="status-pill" style="border-color: #555; color: #555;">Connecting...</div>
+    </header>
+
+    <!-- Main View -->
+    <div class="video-panel">
+        <div class="overlay-text">LIVE FEED // CAM_01</div>
+        <img id="video-display" src="" alt="NO SIGNAL">
     </div>
 
-    <!-- Side View: Telemetry -->
-    <div class="panel">
-        <h2>Telemetry</h2>
+    <!-- Side Panel -->
+    <div class="side-panel">
+        <!-- IMU Data -->
+        <div class="card">
+            <h2>IMU TELEMETRY</h2>
+            <div class="telemetry-grid">
+                <div class="metric">
+                    <div class="metric-label">ACC X</div>
+                    <div class="metric-val" id="acc-x">0.00</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">ACC Y</div>
+                    <div class="metric-val" id="acc-y">0.00</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">ACC Z</div>
+                    <div class="metric-val" id="acc-z">0.00</div>
+                </div>
+            </div>
+        </div>
 
-        <div class="metric-card">
-            <div class="metric-label">Acceleration X</div>
-            <div class="metric-value" id="acc-x">0.00</div>
+        <!-- Chat Log -->
+        <div class="card" style="flex: 1; display: flex; flex-direction: column;">
+            <h2>COMMUNICATION LOG</h2>
+            <div id="chat-log" class="chat-container">
+                <div class="chat-line bot">System: Waiting for link...</div>
+            </div>
         </div>
-        <div class="metric-card">
-            <div class="metric-label">Acceleration Y</div>
-            <div class="metric-value" id="acc-y">0.00</div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-label">Acceleration Z</div>
-            <div class="metric-value" id="acc-z">0.00</div>
-        </div>
+    </div>
 
-        <div style="margin-top: auto; color: #444; font-family: monospace; font-size: 0.8rem;">
-            SYSTEM STATUS: ONLINE<br>
-            SOCKET: CONNECTED
-        </div>
+    <!-- Bottom Graph -->
+    <div class="bottom-panel">
+        <canvas id="acc-chart"></canvas>
     </div>
 
     <script>
         const socket = io();
+
+        // --- Status ---
+        const statusEl = document.getElementById('connection-status');
+        socket.on('connect', () => {
+            statusEl.innerText = "ONLINE";
+            statusEl.style.borderColor = "#00ff00";
+            statusEl.style.color = "#00ff00";
+        });
+        socket.on('disconnect', () => {
+            statusEl.innerText = "OFFLINE";
+            statusEl.style.borderColor = "#ff0000";
+            statusEl.style.color = "#ff0000";
+        });
+
+        // --- Video ---
         const img = document.getElementById('video-display');
-
-        // Connection Status
-        socket.on('connect', () => document.getElementById('status-dot').classList.add('active'));
-        socket.on('disconnect', () => document.getElementById('status-dot').classList.remove('active'));
-
-        // Handle Video Frame
         socket.on('dashboard_video', (data) => {
             img.src = data;
         });
 
-        // Handle IMU
-        socket.on('dashboard_imu', (data) => {
-            if (data.acc) {
-                document.getElementById('acc-x').innerText = (data.acc.x || 0).toFixed(2);
-                document.getElementById('acc-y').innerText = (data.acc.y || 0).toFixed(2);
-                document.getElementById('acc-z').innerText = (data.acc.z || 0).toFixed(2);
+        // --- IMU & Chart ---
+        const ctx = document.getElementById('acc-chart').getContext('2d');
+        const labels = Array(50).fill('');
+        const dataX = Array(50).fill(0);
+
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Acc X',
+                    data: dataX,
+                    borderColor: '#ff0055',
+                    borderWidth: 1,
+                    tension: 0.4,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { display: false },
+                    y: { grid: { color: 'rgba(255,255,255,0.1)' } }
+                },
+                plugins: { legend: { display: false } }
             }
         });
-    </script>
 
+        socket.on('dashboard_imu', (data) => {
+            if (data.acc) {
+                const x = parseFloat(data.acc.x).toFixed(2);
+                document.getElementById('acc-x').innerText = x;
+                document.getElementById('acc-y').innerText = parseFloat(data.acc.y).toFixed(2);
+                document.getElementById('acc-z').innerText = parseFloat(data.acc.z).toFixed(2);
+
+                // Update Chart fast
+                dataX.push(x);
+                dataX.shift();
+                chart.update('none'); // 'none' mode for performance
+            }
+        });
+
+        // --- Chat Log ---
+        const chatLog = document.getElementById('chat-log');
+
+        socket.on('chat_message', (data) => {
+            addEntry(data.message, 'user');
+        });
+
+        socket.on('chat_reply', (data) => {
+            addEntry(data.text, 'bot');
+        });
+
+        function addEntry(text, type) {
+            const div = document.createElement('div');
+            div.className = `chat-line ${type}`;
+            div.innerText = `${type.toUpperCase()}: ${text}`;
+            chatLog.appendChild(div);
+            chatLog.scrollTop = chatLog.scrollHeight;
+        }
+
+    </script>
 </body>
 
 </html>

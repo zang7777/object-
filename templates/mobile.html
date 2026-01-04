@@ -4,180 +4,485 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mobile Sensor Bridge (Sender)</title>
+    <title>AI Vision Interface</title>
 
     <!-- Fonts -->
     <link
-        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Rajdhani:wght@300;500;700&display=swap"
         rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.4/socket.io.min.js"></script>
 
     <style>
-        /* Reusing premium Cyber-Glass CSS */
         :root {
-            --bg-color: #030305;
-            --card-bg: rgba(22, 22, 28, 0.6);
-            --card-border: rgba(255, 255, 255, 0.08);
-            --primary: #3b82f6;
-            --primary-glow: rgba(59, 130, 246, 0.4);
-            --accent: #10b981;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --font-main: 'Outfit', sans-serif;
-            --glass-blur: blur(20px);
+            --primary: #00f3ff;
+            --accent: #ff0055;
+            --glass: rgba(10, 20, 30, 0.65);
+            --border: rgba(0, 243, 255, 0.2);
+            --text: #e0faff;
+            --font-display: 'Orbitron', sans-serif;
+            --font-body: 'Rajdhani', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
         }
 
         body {
             margin: 0;
-            background-color: var(--bg-color);
-            background-image: radial-gradient(circle at 10% 20%, rgba(59, 130, 246, 0.15), transparent 40%);
-            color: var(--text-main);
-            font-family: var(--font-main);
+            background: #000;
+            color: var(--text);
+            font-family: var(--font-body);
+            overflow: hidden;
+            height: 100vh;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            padding: 24px;
-            min-height: 100vh;
         }
 
-        h1 {
-            font-size: 1.8rem;
-            margin: 0 0 20px 0;
-            background: linear-gradient(135deg, #fff, #94a3b8);
-            background-clip: text;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        .glass-card {
-            background: var(--card-bg);
-            border: 1px solid var(--card-border);
-            border-radius: 24px;
-            padding: 20px;
-            backdrop-filter: var(--glass-blur);
+        /* Fullscreen Video */
+        #video-container {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
-            max-width: 500px;
-            margin-bottom: 20px;
+            height: 100%;
+            z-index: 1;
+            background: #000;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+            /* Mirror effect */
+        }
+
+        canvas {
+            display: none;
+        }
+
+        /* HUD Overlay */
+        .hud-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+            /* Let clicks pass through to buttons */
+            border: 2px solid transparent;
+            /* Vignette */
+            background: radial-gradient(circle, transparent 60%, rgba(0, 0, 0, 0.8));
+        }
+
+        /* Top Bar */
+        .top-bar {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: auto;
+        }
+
+        .status-badge {
+            background: var(--glass);
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            font-family: var(--font-display);
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            backdrop-filter: blur(10px);
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            background: #555;
+            border-radius: 50%;
+            box-shadow: 0 0 5px #555;
+        }
+
+        .dot.active {
+            background: var(--primary);
+            box-shadow: 0 0 10px var(--primary);
+        }
+
+        .dot.recording {
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            50% {
+                opacity: 0.4;
+            }
+        }
+
+        /* Bottom Controls */
+        .controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            pointer-events: auto;
+            z-index: 10;
+        }
+
+        .btn-round {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: var(--glass);
+            border: 2px solid var(--border);
+            color: var(--primary);
+            font-size: 24px;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.1);
+        }
+
+        .btn-round:active {
+            transform: scale(0.9);
+        }
+
+        .btn-main {
+            width: 90px;
+            height: 90px;
+            border-color: var(--primary);
+            background: rgba(0, 243, 255, 0.1);
+            font-size: 32px;
+        }
+
+        /* Chat Overlay */
+        .chat-drawer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 60%;
+            background: rgba(5, 10, 15, 0.95);
+            border-top: 2px solid var(--primary);
+            border-top-left-radius: 20px;
+            border-top-right-radius: 20px;
+            transform: translateY(110%);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 20;
+            display: flex;
+            flex-direction: column;
+            pointer-events: auto;
+            box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.8);
+        }
+
+        .chat-drawer.open {
+            transform: translateY(0);
+        }
+
+        .chat-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: var(--font-display);
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .msg {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 1rem;
+            line-height: 1.5;
+            position: relative;
+        }
+
+        .msg-bot {
+            align-self: flex-start;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom-left-radius: 0;
+            color: var(--text);
+        }
+
+        .msg-user {
+            align-self: flex-end;
+            background: rgba(0, 243, 255, 0.15);
+            border: 1px solid var(--primary);
+            border-bottom-right-radius: 0;
+            color: #fff;
+        }
+
+        .chat-input-area {
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            gap: 10px;
+        }
+
+        input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 12px;
+            border-radius: 8px;
+            color: white;
+            font-family: var(--font-body);
+            font-size: 1rem;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: var(--primary);
+        }
+
+        /* Floating Info Toast */
+        .toast {
+            position: absolute;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid var(--primary);
+            padding: 10px 20px;
+            border-radius: 30px;
+            font-family: var(--font-display);
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            z-index: 15;
             text-align: center;
         }
 
-        button {
-            width: 100%;
-            padding: 14px;
-            border: none;
-            border-radius: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            background: var(--primary);
-            color: white;
-            margin-top: 10px;
-        }
-
-        .status-dot {
-            width: 10px;
-            height: 10px;
-            background: #555;
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 5px;
-        }
-
-        .status-dot.active {
-            background: var(--accent);
-            box-shadow: 0 0 10px var(--accent);
+        .toast.visible {
+            opacity: 1;
         }
     </style>
 </head>
 
 <body>
-    <h1>Sensor Sender</h1>
+    <!-- Video Background -->
+    <div id="video-container">
+        <video id="video-feed" autoplay playsinline muted></video>
+        <canvas id="canvas"></canvas>
+    </div>
 
-    <div class="glass-card">
-        <div style="margin-bottom: 10px;">
-            <span id="socket-status" class="status-dot"></span> <span id="socket-text">Disconnected</span>
+    <!-- HUD -->
+    <div class="hud-overlay">
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <div class="status-badge">
+                <span id="socket-dot" class="dot"></span> SYSTEM ONLINE
+            </div>
+            <div class="status-badge" id="voice-indicator" style="display:none; border-color: var(--accent);">
+                <span class="dot recording"></span> VOICE ACTIVE
+            </div>
         </div>
 
-        <!-- Hidden video/canvas for processing -->
-        <video id="video-feed" autoplay playsinline muted
-            style="width: 100%; border-radius: 12px; transform: scaleX(-1);"></video>
-        <canvas id="canvas" style="display:none;"></canvas>
+        <!-- Toast -->
+        <div id="toast" class="toast">Identifying Object...</div>
 
-        <button onclick="startStreaming()">Start Streaming</button>
-        <button onclick="requestIMU()" style="background: rgba(255,255,255,0.1);">Enable IMU</button>
+        <!-- Dynamic Controls -->
+        <div class="controls">
+            <button class="btn-round" onclick="toggleChat()">💬</button>
+            <button class="btn-round btn-main" onclick="manualIdentify()">👁️</button>
+            <button class="btn-round" id="mic-btn" onclick="toggleVoice()">🎙️</button>
+        </div>
+    </div>
+
+    <!-- Chat Drawer -->
+    <div class="chat-drawer" id="chat-drawer">
+        <div class="chat-header">
+            <span>GEMINI INTELLIGENCE</span>
+            <span onclick="toggleChat()" style="font-size: 20px; cursor: pointer;">✕</span>
+        </div>
+        <div class="chat-messages" id="chat-messages">
+            <div class="msg msg-bot">Systems initialized. Ready to identify visual targets.</div>
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chat-input" placeholder="Ask about the target..." onkeypress="handleEnter(event)">
+        </div>
     </div>
 
     <script>
+        // --- Socket & Setup ---
         const socket = io();
         const video = document.getElementById('video-feed');
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
+
         let stream = null;
         let streaming = false;
 
-        socket.on('connect', () => {
-            document.getElementById('socket-status').classList.add('active');
-            document.getElementById('socket-text').innerText = 'Connected to Server';
-        });
-
-        socket.on('disconnect', () => {
-            document.getElementById('socket-status').classList.remove('active');
-            document.getElementById('socket-text').innerText = 'Disconnected';
-        });
-
-        async function startStreaming() {
+        // Init Camera Immediately
+        async function initCamera() {
             try {
                 stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: 'environment', width: 640, height: 480 },
+                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
                     audio: false
                 });
                 video.srcObject = stream;
                 streaming = true;
-
-                // Reduce framerate slightly to save bandwidth (e.g., 20 FPS)
-                setInterval(sendFrame, 50);
+                setInterval(sendFrame, 100); // 10 FPS
             } catch (err) {
-                alert("Camera failed: " + err);
+                alert("Camera Access Required: " + err);
             }
         }
+        initCamera();
+
+        socket.on('connect', () => {
+            document.getElementById('socket-dot').classList.add('active');
+        });
 
         function sendFrame() {
             if (!streaming) return;
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             ctx.drawImage(video, 0, 0);
-
-            // Compression quality 0.5
-            const data = canvas.toDataURL('image/jpeg', 0.5);
+            // Higher quality for PyTorch
+            const data = canvas.toDataURL('image/jpeg', 0.7);
             socket.emit('video_frame', data);
         }
 
-        async function requestIMU() {
-            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-                await DeviceMotionEvent.requestPermission();
+        // --- Voice & Interaction ---
+        const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new Recognition();
+        recognition.continuous = false; // Short commands
+        recognition.lang = 'en-US';
+
+        let voiceActive = false;
+        let isSpeaking = false;
+
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript.toLowerCase();
+            console.log("Heard:", transcript);
+
+            showToast(`Heard: "${transcript}"`);
+
+            if (transcript.includes("identify") || transcript.includes("what is this")) {
+                manualIdentify();
+            } else {
+                if (document.getElementById('chat-drawer').classList.contains('open')) {
+                    addMessage(transcript, 'user');
+                    socket.emit('chat_message', { message: transcript });
+                }
             }
-            window.addEventListener('devicemotion', (event) => {
-                const acc = event.accelerationIncludingGravity || {};
-                const rot = event.rotationRate || {};
-                socket.emit('imu_data', {
-                    acc: { x: acc.x, y: acc.y, z: acc.z },
-                    rot: { alpha: rot.alpha, beta: rot.beta, gamma: rot.gamma }
-                });
-            });
-            alert("IMU Enabled & Streaming");
+        };
+
+        recognition.onend = () => {
+            if (voiceActive) recognition.start(); // Auto-restart loop
+            else document.getElementById('voice-indicator').style.display = 'none';
+        };
+
+        recognition.onerror = (e) => {
+            console.error(e);
+            if (voiceActive) setTimeout(() => recognition.start(), 500);
+        };
+
+        function toggleVoice() {
+            voiceActive = !voiceActive;
+            const btn = document.getElementById('mic-btn');
+            if (voiceActive) {
+                recognition.start();
+                document.getElementById('voice-indicator').style.display = 'flex';
+                btn.style.borderColor = "var(--accent)";
+                btn.style.color = "var(--accent)";
+            } else {
+                recognition.stop();
+                document.getElementById('voice-indicator').style.display = 'none';
+                btn.style.borderColor = "var(--border)";
+                btn.style.color = "var(--primary)";
+            }
         }
 
-        // --- Text to Speech ---
-        let lastSpokenTime = 0;
-        const SPEAK_COOLDOWN = 3000; // 3 seconds
+        function manualIdentify() {
+            showToast("Analyzing Target...");
+            socket.emit('identify_request');
+        }
+
+        // --- Chat & Response ---
 
         socket.on('voice_command', (data) => {
-            const now = Date.now();
-            if (now - lastSpokenTime > SPEAK_COOLDOWN) {
-                const utterance = new SpeechSynthesisUtterance(data.label);
-                window.speechSynthesis.speak(utterance);
-                lastSpokenTime = now;
-            }
+            // "data.label" contains the text logic from server
+            speak(data.label);
+            openChat();
+            addMessage(data.label, 'bot');
         });
+
+        socket.on('chat_reply', (data) => {
+            addMessage(data.text, 'bot');
+        });
+
+        function speak(text) {
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(text);
+            u.rate = 1.1;
+            window.speechSynthesis.speak(u);
+        }
+
+        // --- UI Logic ---
+        const drawer = document.getElementById('chat-drawer');
+        const toast = document.getElementById('toast');
+
+        function toggleChat() {
+            drawer.classList.toggle('open');
+        }
+
+        function openChat() {
+            drawer.classList.add('open');
+        }
+
+        function showToast(text) {
+            toast.innerText = text;
+            toast.classList.add('visible');
+            setTimeout(() => toast.classList.remove('visible'), 3000);
+        }
+
+        function handleEnter(e) {
+            if (e.key === 'Enter') {
+                const text = e.target.value.trim();
+                if (text) {
+                    addMessage(text, 'user');
+                    socket.emit('chat_message', { message: text });
+                    e.target.value = '';
+                }
+            }
+        }
+
+        function addMessage(text, type) {
+            const div = document.createElement('div');
+            div.className = `msg msg-${type}`;
+            div.innerText = text;
+            const container = document.getElementById('chat-messages');
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
     </script>
 </body>
 

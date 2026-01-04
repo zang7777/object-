@@ -49,7 +49,7 @@ if [ ! -z "$PID" ]; then
 fi
 
 echo "Activating virtual environment..."
-source venv/bin/activate
+source .venv/bin/activate
 
 echo "Starting Flask-SocketIO Server (OpenCV Enabled)..."
 python3 app.py
